@@ -11,24 +11,20 @@ from dataset.AttrDataset import AttrDataset, get_transform
 from loss.CE_loss import CEL_Sigmoid
 from models.base_block import FeatClassifier, BaseClassifier
 from models.resnet import resnet50, resnet18
-<<<<<<< HEAD
 from models.resnet_se import resnet50_dynamic_se
 from tools.function import  get_model_log_path, get_pedestrian_metrics
 from tools.utils import load_ckpt, time_str, save_ckpt, ReDirectSTD, set_seed
 
 from tools.function import get_model_log_path, get_pedestrian_metrics
 from tools.utils import time_str, save_ckpt, ReDirectSTD, set_seed
->>>>>>> 7c1b54e1c9904b204dd8732a426f14daa05b7f7b
 
 set_seed(605)
 
 
 def main(args):
-<<<<<<< HEAD
     os.environ['CUDA_VISIBLE_DEVICES'] = args.device
 
  
->>>>>>> 7c1b54e1c9904b204dd8732a426f14daa05b7f7b
     exp_dir = os.path.join(args.save_path, args.dataset, args.dataset, 'img_model/ckpt_max.pth')
     train_tsfm, valid_tsfm = get_transform(args)
    
@@ -41,35 +37,28 @@ def main(args):
         num_workers=4,
         pin_memory=True,
     )
-<<<<<<< HEAD
     print('have generated dataset')
 
->>>>>>> 7c1b54e1c9904b204dd8732a426f14daa05b7f7b
     if args.model_name == 'resnet50':
         backbone = resnet50()
     if args.model_name == 'resnet18':
         backbone = resnet18()
     
-<<<<<<< HEAD
     classifier = BaseClassifier(nattr=valid_set.attr_num)
 
->>>>>>> 7c1b54e1c9904b204dd8732a426f14daa05b7f7b
     model = FeatClassifier(backbone, classifier)
 
     if torch.cuda.is_available():
         model = torch.nn.DataParallel(model).cuda()
-<<<<<<< HEAD
    
 
     #loading state_dict from the model
     model.load_state_dict(torch.load(exp_dir)['state_dicts'])
     #load_ckpt(model, exp_dir)
     print('have load from the pretrained model')
-=======
 
 
 
->>>>>>> 7c1b54e1c9904b204dd8732a426f14daa05b7f7b
     #start eval
     valid_loss, valid_gt, valid_probs = valid_trainer(
             model=model,
