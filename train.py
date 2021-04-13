@@ -1,12 +1,10 @@
 import os
 import pprint
 from collections import OrderedDict, defaultdict
-
 import numpy as np
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
-
 from batch_engine import valid_trainer, batch_trainer
 from config import argument_parser
 from dataset.AttrDataset import AttrDataset, get_transform
@@ -21,7 +19,7 @@ set_seed(605)
 
 def main(args):
     visenv_name = args.dataset
-    exp_dir = os.path.join('exp_result_18', args.dataset)
+    exp_dir = os.path.join(args.save_path, args.dataset)
     model_dir, log_dir = get_model_log_path(exp_dir, visenv_name)
     stdout_file = os.path.join(log_dir, f'stdout_{time_str()}.txt')
     save_model_path = os.path.join(model_dir, 'ckpt_max.pth')
@@ -66,7 +64,10 @@ def main(args):
     sample_weight = labels.mean(0)
 
     #backbone = resnet50()
-    backbone = resnet18()
+    if args.model_name == 'resnet50':
+        backbone = resnet50()
+    if args.model_name == 'resnet18':
+        backbone = resnet18()
     classifier = BaseClassifier(nattr=train_set.attr_num)
     model = FeatClassifier(backbone, classifier)
 
