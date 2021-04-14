@@ -6,10 +6,11 @@ import torch
 import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 import torchvision.models.resnet
+import pdb
 
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
            'resnet152', 'resnext50_32x4d', 'resnext101_32x8d']
-att = 0
+
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
     'resnet34': 'https://download.pytorch.org/models/resnet34-333f7ec4.pth',
@@ -46,15 +47,15 @@ class SELayer(nn.Module):
         #x = data[0]
         #att = data[1][:,:,0,0]
         #pdb.set_trace()
-        b, c, _, _ = x.size()
-        y = self.avg_pool(x).view(b, c)
-        global att
-        y = self.fc_1(att.view(b,c)+y)
+        b, c, _, _ = x[0].size()
+        y = self.avg_pool(x[0]).view(b, c)
+       
+        y = self.fc_1(x[1].view(b,c)+y)
         y = self.re_1(y)
         y = self.fc_2(y)
         y = self.re_2(y)
         y = self.si(y).view(b, c, 1, 1)
-        return x * y.expand_as(x)
+        return x[0] * y.expand_as(x[0])
 
 class SEBottleneck(nn.Module):
     expansion = 4
@@ -76,9 +77,10 @@ class SEBottleneck(nn.Module):
         self.stride = stride
 
     def forward(self, x):
-        residual = x
-
-        out = self.conv1(x)
+    
+        residual = x[0]
+       
+        out = self.conv1(x[0])
         out = self.bn1(out)
         out = self.relu(out)
 
@@ -88,15 +90,16 @@ class SEBottleneck(nn.Module):
 
         out = self.conv3(out)
         out = self.bn3(out)
-        out = self.se(out)
-
+        out = self.se({0:out, 1:x[1]})
+     
         if self.downsample is not None:
-            residual = self.downsample(x)
+            residual = self.downsample(x[0])
 
         out += residual
+        
         out = self.relu(out)
 
-        return out
+        return {0:out, 1:x[1]}
 class SEBasicBlock(nn.Module):
     expansion = 1
 
@@ -269,7 +272,7 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        global att
+      
         att1 = self.att_layer1(x)
         att1_b = self.avgpool(att1)
 
@@ -289,17 +292,17 @@ class ResNet(nn.Module):
         x = self.maxpool(x)
 
         att = att1_b
-        x = self.layer1(x)
+        x = self.layer1({0:x, 1:att})[0]
         #pdb.set_trace()
 		
         att = att2_b
-        x = self.layer2(x)
+        x = self.layer2({0:x, 1:att})[0]
         #pdb.set_trace()
         att = att3_b
-        x = self.layer3(x)
+        x = self.layer3({0:x, 1:att})[0]
 
         att = att4_b
-        x = self.layer4(x)
+        x = self.layer4({0:x, 1:att})[0]
 
         return x
 

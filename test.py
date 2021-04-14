@@ -12,6 +12,7 @@ from loss.CE_loss import CEL_Sigmoid
 from models.base_block import FeatClassifier, BaseClassifier
 from models.resnet import resnet50, resnet18
 from models.resnet_se import resnet50_dynamic_se
+from models.resnet18_se import resnet18_dynamic_se
 from tools.function import  get_model_log_path, get_pedestrian_metrics
 from tools.utils import load_ckpt, time_str, save_ckpt, ReDirectSTD, set_seed
 
@@ -33,23 +34,34 @@ def main(args):
         pin_memory=True,
     )
     print('have generated dataset')
+
     if args.model_name == 'resnet50':
         backbone = resnet50()
     if args.model_name == 'resnet18':
         backbone = resnet18()
+    if args.model_name == 'resnet50_dynamic_se':
+        backbone = resnet50_dynamic_se()
+    if args.model_name == 'resnet18_dynamic_se':
+        backbone = resnet18_dynamic_se()
     
     classifier = BaseClassifier(nattr=valid_set.attr_num)
     model = FeatClassifier(backbone, classifier)
 
     if torch.cuda.is_available():
         model = torch.nn.DataParallel(model).cuda()
-   
+        #model = model.cuda()
 
     #loading state_dict from the model
     model.load_state_dict(torch.load(exp_dir)['state_dicts'])
+    
     #load_ckpt(model, exp_dir)
     print('have load from the pretrained model')
+    
+
     #start eval
+    labels = valid_set.label
+    sample_weight = labels.mean(0)
+    criterion = CEL_Sigmoid(sample_weight)
     valid_loss, valid_gt, valid_probs = valid_trainer(
             model=model,
             valid_loader=valid_loader,
