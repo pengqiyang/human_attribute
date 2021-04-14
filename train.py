@@ -11,11 +11,12 @@ from dataset.AttrDataset import AttrDataset, get_transform
 from loss.CE_loss import CEL_Sigmoid
 from models.base_block import FeatClassifier, BaseClassifier
 from models.resnet import resnet50, resnet18
+from models.resnet_se import resnet50_dynamic_se
+from models.resnet18_se import resnet18_dynamic_se
 from tools.function import get_model_log_path, get_pedestrian_metrics
 from tools.utils import time_str, save_ckpt, ReDirectSTD, set_seed
 
 set_seed(605)
-
 
 def main(args):
     visenv_name = args.dataset
@@ -23,7 +24,7 @@ def main(args):
     model_dir, log_dir = get_model_log_path(exp_dir, visenv_name)
     stdout_file = os.path.join(log_dir, f'stdout_{time_str()}.txt')
     save_model_path = os.path.join(model_dir, 'ckpt_max.pth')
-
+    os.environ['CUDA_VISIBLE_DEVICES'] = args.device
     if args.redirector:
         print('redirector stdout')
         ReDirectSTD(stdout_file, 'stdout', False)
@@ -68,6 +69,12 @@ def main(args):
         backbone = resnet50()
     if args.model_name == 'resnet18':
         backbone = resnet18()
+
+    if args.model_name == 'resnet50_dynamic_se':
+        backbone = resnet50_dynamic_se()
+    if args.model_name == 'resnet18_dynamic_se':
+        backbone = resnet18_dynamic_se()
+    print('have generated the model')    
     classifier = BaseClassifier(nattr=train_set.attr_num)
     model = FeatClassifier(backbone, classifier)
 
@@ -80,7 +87,7 @@ def main(args):
                     {'params': model.module.fresh_params(), 'lr': args.lr_new}]
     optimizer = torch.optim.SGD(param_groups, momentum=args.momentum, weight_decay=args.weight_decay, nesterov=False)
     lr_scheduler = ReduceLROnPlateau(optimizer, factor=0.1, patience=4)
-
+    loss = args.loss
     best_metric, epoch = trainer(epoch=args.train_epoch,
                                  model=model,
                                  train_loader=train_loader,
@@ -88,13 +95,14 @@ def main(args):
                                  criterion=criterion,
                                  optimizer=optimizer,
                                  lr_scheduler=lr_scheduler,
-                                 path=save_model_path)
+                                 path=save_model_path,
+                                 loss =loss)
 
     print(f'{visenv_name},  best_metrc : {best_metric} in epoch{epoch}')
 
 
 def trainer(epoch, model, train_loader, valid_loader, criterion, optimizer, lr_scheduler,
-            path):
+            path, loss):
     maximum = float(-np.inf)
     best_epoch = 0
 
@@ -108,6 +116,7 @@ def trainer(epoch, model, train_loader, valid_loader, criterion, optimizer, lr_s
             train_loader=train_loader,
             criterion=criterion,
             optimizer=optimizer,
+            loss = loss,
         )
 
         valid_loss, valid_gt, valid_probs = valid_trainer(

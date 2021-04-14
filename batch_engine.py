@@ -1,4 +1,5 @@
 import time
+import torch.nn.functional as F 
 
 import numpy as np
 import torch
@@ -8,7 +9,7 @@ from tqdm import tqdm
 from tools.utils import AverageMeter, to_scalar, time_str
 
 
-def batch_trainer(epoch, model, train_loader, criterion, optimizer):
+def batch_trainer(epoch, model, train_loader, criterion, optimizer, loss):
     model.train()
     epoch_time = time.time()
     loss_meter = AverageMeter()
@@ -20,12 +21,24 @@ def batch_trainer(epoch, model, train_loader, criterion, optimizer):
     lr = optimizer.param_groups[1]['lr']
 
     for step, (imgs, gt_label, imgname) in enumerate(train_loader):
-
+        #print(step)
         batch_time = time.time()
         imgs, gt_label = imgs.cuda(), gt_label.cuda()
         train_logits = model(imgs, gt_label)
-        train_loss = criterion(train_logits, gt_label)
+        if loss == 'KL_LOSS':
+            sim = np.load('src/sim.npy')
+            cls_weight = model.state_dict()['module.classifier.logits.0.weight']
+            cls_weight_t = torch.transpose(cls_weight, 1, 0)
+            cls = torch.mm(cls_weight, cls_weight_t)
+            cls = torch.triu(cls, 1).view(-1)
+            sim = torch.from_numpy(sim).float().cuda(non_blocking=True)
+            sim = torch.triu(sim, 1).view(-1)
+            #pdb.set_trace()
+            kl_mean = F.kl_div(cls.softmax(dim=-1).log(), sim.softmax(dim=-1), reduction='sum')
 
+            train_loss = criterion(train_logits, gt_label) + kl_mean
+        if loss == 'BCE_LOSS':
+            train_loss = criterion(train_logits, gt_label) 
         train_loss.backward()
         clip_grad_norm_(model.parameters(), max_norm=10.0)  # make larger learning rate works
         optimizer.step()

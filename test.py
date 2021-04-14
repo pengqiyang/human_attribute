@@ -15,16 +15,11 @@ from models.resnet_se import resnet50_dynamic_se
 from tools.function import  get_model_log_path, get_pedestrian_metrics
 from tools.utils import load_ckpt, time_str, save_ckpt, ReDirectSTD, set_seed
 
-from tools.function import get_model_log_path, get_pedestrian_metrics
-from tools.utils import time_str, save_ckpt, ReDirectSTD, set_seed
-
 set_seed(605)
 
 
 def main(args):
     os.environ['CUDA_VISIBLE_DEVICES'] = args.device
-
- 
     exp_dir = os.path.join(args.save_path, args.dataset, args.dataset, 'img_model/ckpt_max.pth')
     train_tsfm, valid_tsfm = get_transform(args)
    
@@ -38,14 +33,12 @@ def main(args):
         pin_memory=True,
     )
     print('have generated dataset')
-
     if args.model_name == 'resnet50':
         backbone = resnet50()
     if args.model_name == 'resnet18':
         backbone = resnet18()
     
     classifier = BaseClassifier(nattr=valid_set.attr_num)
-
     model = FeatClassifier(backbone, classifier)
 
     if torch.cuda.is_available():
@@ -56,9 +49,6 @@ def main(args):
     model.load_state_dict(torch.load(exp_dir)['state_dicts'])
     #load_ckpt(model, exp_dir)
     print('have load from the pretrained model')
-
-
-
     #start eval
     valid_loss, valid_gt, valid_probs = valid_trainer(
             model=model,
