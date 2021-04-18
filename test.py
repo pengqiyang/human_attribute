@@ -10,9 +10,14 @@ from config import argument_parser
 from dataset.AttrDataset import AttrDataset, get_transform
 from loss.CE_loss import CEL_Sigmoid
 from models.base_block import FeatClassifier, BaseClassifier
-from models.resnet import resnet50, resnet18
-from models.resnet_se import resnet50_dynamic_se
-from models.resnet18_se import resnet18_dynamic_se
+from models.resnet import resnet50, resnet18, resnet34
+from models.resnet50_dynamic_se import resnet50_dynamic_se
+from models.resnet18_dynamic_se import resnet18_dynamic_se
+from models.resnet18_group_se import resnet18_group_se
+from models.resnet18_vit import resnet18_vit
+from models.resnet18_vit_v2 import resnet18_vit_v2
+from models.resnet18_vit_v3 import resnet18_vit_v3
+from models.resnet18_vit_v5 import resnet18_vit_v5
 from tools.function import  get_model_log_path, get_pedestrian_metrics
 from tools.utils import load_ckpt, time_str, save_ckpt, ReDirectSTD, set_seed
 
@@ -21,6 +26,7 @@ set_seed(605)
 
 def main(args):
     os.environ['CUDA_VISIBLE_DEVICES'] = args.device
+    print('load the model from:   ' + args.save_path )
     exp_dir = os.path.join(args.save_path, args.dataset, args.dataset, 'img_model/ckpt_max.pth')
     train_tsfm, valid_tsfm = get_transform(args)
    
@@ -43,7 +49,20 @@ def main(args):
         backbone = resnet50_dynamic_se()
     if args.model_name == 'resnet18_dynamic_se':
         backbone = resnet18_dynamic_se()
-    
+    if args.model_name == 'resnet18_group_se':
+        backbone = resnet18_group_se()
+    if args.model_name == 'resnet18_vit':
+        backbone = resnet18_vit()
+    if args.model_name == 'resnet18_vit_v2':
+        backbone = resnet18_vit_v2()
+    if args.model_name == 'resnet18_vit_v3':
+        backbone = resnet18_vit_v3()
+    if args.model_name == 'resnet18_vit_v4':
+        backbone = resnet18_vit_v4()
+    if args.model_name == 'resnet34':
+        backbone = resnet34()        
+    if args.model_name == 'resnet18_vit_v5':
+        backbone = resnet18_vit_v5(num_classes = valid_set.attr_num)
     classifier = BaseClassifier(nattr=valid_set.attr_num)
     model = FeatClassifier(backbone, classifier)
 

@@ -1,6 +1,6 @@
 import time
 import torch.nn.functional as F 
-
+import pdb
 import numpy as np
 import torch
 from torch.nn.utils import clip_grad_norm_
@@ -8,7 +8,10 @@ from tqdm import tqdm
 
 from tools.utils import AverageMeter, to_scalar, time_str
 
-
+def l2_norm(input, axit=1):
+    norm = torch.norm(input,2,axit,True)
+    output = torch.div(input, norm)
+    return output
 def batch_trainer(epoch, model, train_loader, criterion, optimizer, loss):
     model.train()
     epoch_time = time.time()
@@ -28,8 +31,24 @@ def batch_trainer(epoch, model, train_loader, criterion, optimizer, loss):
         if loss == 'KL_LOSS':
             sim = np.load('src/sim.npy')
             cls_weight = model.state_dict()['module.classifier.logits.0.weight']
+            #pdb.set_trace()
             cls_weight_t = torch.transpose(cls_weight, 1, 0)
             cls = torch.mm(cls_weight, cls_weight_t)
+            cls = torch.triu(cls, 1).view(-1)
+            sim = torch.from_numpy(sim).float().cuda(non_blocking=True)
+            #pdb.set_trace()
+            sim = torch.triu(sim, 1).view(-1)
+            #pdb.set_trace()
+            kl_mean = F.kl_div(cls.softmax(dim=-1).log(), sim.softmax(dim=-1), reduction='sum')
+
+            train_loss = criterion(train_logits, gt_label) + kl_mean
+        
+        if loss == 'KL2_LOSS':
+            sim = np.load('src/sim.npy')
+            cls_weight = l2_norm(train_logits, 0)
+            cls_weight_t = torch.transpose(cls_weight, 1, 0)
+           
+            cls = torch.mm(cls_weight_t, cls_weight)
             cls = torch.triu(cls, 1).view(-1)
             sim = torch.from_numpy(sim).float().cuda(non_blocking=True)
             sim = torch.triu(sim, 1).view(-1)

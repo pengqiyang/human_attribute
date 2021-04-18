@@ -10,9 +10,17 @@ from config import argument_parser
 from dataset.AttrDataset import AttrDataset, get_transform
 from loss.CE_loss import CEL_Sigmoid
 from models.base_block import FeatClassifier, BaseClassifier
-from models.resnet import resnet50, resnet18
-from models.resnet50_se import resnet50_dynamic_se
-from models.resnet18_se import resnet18_dynamic_se
+from models.resnet import resnet50, resnet18, resnet34
+from models.resnet50_dynamic_se import resnet50_dynamic_se
+from models.resnet18_dynamic_se import resnet18_dynamic_se
+from models.resnet18_replace_se import resnet18_replace_se
+from models.resnet_se import resnet18_se
+from models.resnet18_vit import resnet18_vit
+from models.resnet18_vit_v2 import resnet18_vit_v2
+from models.resnet18_vit_v3 import resnet18_vit_v3
+from models.resnet18_vit_v4 import resnet18_vit_v4
+from models.resnet18_vit_v5 import resnet18_vit_v5
+from models.resnet18_group_se import resnet18_group_se
 from tools.function import get_model_log_path, get_pedestrian_metrics
 from tools.utils import time_str, save_ckpt, ReDirectSTD, set_seed
 
@@ -74,17 +82,39 @@ def main(args):
         backbone = resnet50_dynamic_se()
     if args.model_name == 'resnet18_dynamic_se':
         backbone = resnet18_dynamic_se()
+    if args.model_name == 'resnet18_replace_se':
+        backbone = resnet18_replace_se()
+    if args.model_name == 'resnet18_se':
+        backbone = resnet18_se()
+    if args.model_name == 'resnet34':
+        backbone = resnet34()
+    if args.model_name == 'resnet18_group_se':
+        backbone = resnet18_group_se()
+    if args.model_name == 'resnet18_vit':
+        backbone = resnet18_vit()
+    if args.model_name == 'resnet18_vit_v2':
+        backbone = resnet18_vit_v2()
+    if args.model_name == 'resnet18_vit_v3':
+        backbone = resnet18_vit_v3()
+    if args.model_name == 'resnet18_vit_v4':
+        backbone = resnet18_vit_v4()
+    if args.model_name == 'resnet18_vit_v5':
+        backbone = resnet18_vit_v5(num_classes = train_set.attr_num)
     print('have generated the model')    
     classifier = BaseClassifier(nattr=train_set.attr_num)
     model = FeatClassifier(backbone, classifier)
-
-    if torch.cuda.is_available():
-        model = torch.nn.DataParallel(model).cuda()
+    
+    print('Number of model parameters: {}'.format(
+        sum([p.data.nelement() for p in model.parameters()])))
+    print('')
+    
+    #if torch.cuda.is_available():
+    model = torch.nn.DataParallel(model).cuda()
 
     criterion = CEL_Sigmoid(sample_weight)
 
     param_groups = [{'params': model.module.finetune_params(), 'lr': args.lr_ft},
-                    {'params': model.module.fresh_params(), 'lr': args.lr_new}]
+                   {'params': model.module.fresh_params(), 'lr': args.lr_new}]
     optimizer = torch.optim.SGD(param_groups, momentum=args.momentum, weight_decay=args.weight_decay, nesterov=False)
     lr_scheduler = ReduceLROnPlateau(optimizer, factor=0.1, patience=4)
     loss = args.loss
@@ -109,7 +139,7 @@ def trainer(epoch, model, train_loader, valid_loader, criterion, optimizer, lr_s
     result_list = defaultdict()
 
     for i in range(epoch):
-
+        
         train_loss, train_gt, train_probs = batch_trainer(
             epoch=i,
             model=model,
@@ -118,6 +148,7 @@ def trainer(epoch, model, train_loader, valid_loader, criterion, optimizer, lr_s
             optimizer=optimizer,
             loss = loss,
         )
+        
 
         valid_loss, valid_gt, valid_probs = valid_trainer(
             model=model,
