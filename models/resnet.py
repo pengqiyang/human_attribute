@@ -1,7 +1,7 @@
 import torch.nn as nn
 # from .utils import load_state_dict_from_url
 # from torch.hub import load_state_dict_from_url
-from torch.hub import load_state_dict_from_url
+#from torch.hub import load_state_dict_from_url
 import torch
 import torch.nn.functional as F
 

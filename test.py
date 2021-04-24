@@ -18,6 +18,8 @@ from models.resnet18_vit import resnet18_vit
 from models.resnet18_vit_v2 import resnet18_vit_v2
 from models.resnet18_vit_v3 import resnet18_vit_v3
 from models.resnet18_vit_v5 import resnet18_vit_v5
+from models.resnet18_vit_split import resnet18_vit_split
+from models.resnet18_energy_vit import resnet18_energy_vit
 from tools.function import  get_model_log_path, get_pedestrian_metrics
 from tools.utils import load_ckpt, time_str, save_ckpt, ReDirectSTD, set_seed
 
@@ -61,8 +63,10 @@ def main(args):
         backbone = resnet18_vit_v4()
     if args.model_name == 'resnet34':
         backbone = resnet34()        
-    if args.model_name == 'resnet18_vit_v5':
-        backbone = resnet18_vit_v5(num_classes = valid_set.attr_num)
+    if args.model_name == 'resnet18_vit_split':
+        backbone = resnet18_vit_split(num_classes = valid_set.attr_num)
+    if args.model_name == 'resnet18_energy_vit':
+        backbone = resnet18_energy_vit(num_classes = valid_set.attr_num)
     classifier = BaseClassifier(nattr=valid_set.attr_num)
     model = FeatClassifier(backbone, classifier)
 
@@ -96,7 +100,9 @@ def main(args):
                   valid_result.instance_acc, valid_result.instance_prec, valid_result.instance_recall,
                   valid_result.instance_f1))
 
-
+    for index in range(len(valid_set.attr_name)):
+        print(f'{valid_set.attr_name[index]}')
+        print(f'pos recall: {valid_result.label_pos_recall[index]}  neg_recall: {valid_result.label_neg_recall[index]}  ma: {valid_result.label_ma[index]}')
         
 
 if __name__ == '__main__':

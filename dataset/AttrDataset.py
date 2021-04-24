@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 import torch.utils.data as data
 from PIL import Image
-
+import pdb
 from tools.function import get_pkl_rootpath
 import torchvision.transforms as T
 
@@ -19,7 +19,7 @@ class AttrDataset(data.Dataset):
         data_path = get_pkl_rootpath(args.dataset)
 
         dataset_info = pickle.load(open(data_path, 'rb+'))
-
+    
         img_id = dataset_info.image_name
         attr_label = dataset_info.label
 
@@ -40,7 +40,9 @@ class AttrDataset(data.Dataset):
             self.img_idx = self.img_idx[0]  # default partition 0
         self.img_num = self.img_idx.shape[0]
         self.img_id = [img_id[i] for i in self.img_idx]
+        #pdb.set_trace()
         self.label = attr_label[self.img_idx]
+        self.attr_name = dataset_info.attr_name
 
     def __getitem__(self, index):
 

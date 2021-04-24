@@ -127,8 +127,8 @@ class ResNet(nn.Module):
                                        ff_dim=256, dropout=0.1)
         self.transformer_3 = Transformer(num_layers=1, dim=256, num_heads=4, 
                                        ff_dim=512, dropout=0.1)
-        #self.transformer_4 = Transformer(num_layers=1, dim=512, num_heads=4, 
-        #                              ff_dim=1024, dropout=0.1)                             
+        self.transformer_4 = Transformer(num_layers=1, dim=512, num_heads=4, 
+                                      ff_dim=1024, dropout=0.1)                             
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
@@ -185,23 +185,20 @@ class ResNet(nn.Module):
         x = x + spatial_att2.transpose(2, 1).view(x.size()[0], 64, x.size()[2], x.size()[3])
         
         x = self.layer2(x)   
-        spatial_att2 = self.transformer_2(x.permute(0, 2, 3, 1).view(x.size()[0], x.size()[2]*x.size()[3], 128))
-        x = x + spatial_att2.transpose(2, 1).view(x.size()[0], 128, x.size()[2], x.size()[3])
+        #spatial_att2 = self.transformer_2(x.permute(0, 2, 3, 1).view(x.size()[0], x.size()[2]*x.size()[3], 128))
+        #x = x + spatial_att2.transpose(2, 1).view(x.size()[0], 128, x.size()[2], x.size()[3])
        
        
         x = self.layer3(x)
-        spatial_att3 = self.transformer_3(x.permute(0, 2, 3, 1).view(x.size()[0], x.size()[2]*x.size()[3], 256))
-        x = x + spatial_att3.transpose(2, 1).view(x.size()[0], 256, x.size()[2], x.size()[3])
+        #spatial_att3 = self.transformer_3(x.permute(0, 2, 3, 1).view(x.size()[0], x.size()[2]*x.size()[3], 256))
+        #x = x + spatial_att3.transpose(2, 1).view(x.size()[0], 256, x.size()[2], x.size()[3])
        
         x = self.layer4(x)
-        #x = self.layer5(x)#batch num 7 7
-        
-        
+       
       
-        #spatial_att4 = self.transformer_4(x.permute(0, 2, 3, 1).view(x.size()[0],  x.size()[2]*x.size()[3], 512))
+        spatial_att4 = self.transformer_4(x.permute(0, 2, 3, 1).view(x.size()[0],  x.size()[2]*x.size()[3], 512))
         #x = x + spatial_att4.transpose(2, 1).view(x.size()[0], 512, x.size()[2], x.size()[3])
-        #out2 = self.avgpool(x)
-        
+                
         
         return x
 
@@ -241,6 +238,29 @@ def resnet18_vit_v5(pretrained=False, progress=True, **kwargs):
     """
     return _resnet('resnet18', BasicBlock, [2, 2, 2, 2], pretrained, progress,
                    **kwargs)
-
+def Energy_Function_Max(feature_map):
+    lala = feature_map
+    with torch.autograd.set_detect_anomaly(True):
+        num = feature_map.size()[0]
+        channel = feature_map.size()[1]
+        spatial = feature_map.size()[2]
+        device = feature_map.device       
+        cov = Covpool.apply(feature_map).to(device)#batch channel channel
+        lamda = torch.eye(channel).to(device)
+        lamda = torch.where(lamda>0 ,torch.full_like(lamda, 0.01) ,torch.full_like(lamda, 0))
+        cov = cov + lamda
+                
+        u = feature_map.view(num, channel, spatial*spatial).mean(2).view(num, channel, 1).to(device)#num, 256, 1
+        left = (feature_map.view(num, channel, spatial*spatial) - u).permute(0, 2, 1).to(device)#num,spatial, channel
+        index = torch.range(0, spatial*spatial-1).long().cuda().view(1, spatial*spatial, 1).repeat(num, 1, 1).to(device)
+       
+        energy = torch.gather(torch.bmm(torch.bmm(left.clone(), torch.inverse(cov.clone())), left.permute(0, 2, 1).clone()), 2, index).view(num, spatial, spatial).to(device)
+        
+        max_value = torch.max(energy.clone().view(num, spatial*spatial), 1)[0].unsqueeze(1).unsqueeze(1).to(device)
+        min_value = torch.min(energy.clone().view(num, spatial*spatial), 1)[0].unsqueeze(1).unsqueeze(1).to(device)
+        #pdb.set_trace()
+        energy = (energy.clone() - min_value) / (max_value - min_value)        
+        feature_map =  energy.unsqueeze(1) * feature_map + feature_map
+        return feature_map, lala 
 
 

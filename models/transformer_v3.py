@@ -1,7 +1,7 @@
 """
 Adapted from https://github.com/lukemelas/simple-bert
 """
- 
+import pdb
 import numpy as np
 from torch import nn
 from torch import Tensor 
@@ -42,6 +42,7 @@ class MultiHeadedSelfAttention(nn.Module):
         * split D(dim) into (H(n_heads), W(width of head)) ; D = H * W
         """
         # (B, S, D) -proj-> (B, S, D) -split-> (B, S, H, W) -trans-> (B, H, S, W)
+        #pdb.set_trace()
         q, k, v = self.proj_q(x), self.proj_k(x), self.proj_v(x)
         q, k, v = (split_last(x, (self.n_heads, -1)).transpose(1, 2) for x in [q, k, v])
         # (B, H, S, W) @ (B, H, W, S) -> (B, H, S, S) -softmax-> (B, H, S, S)
