@@ -3,8 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 import math
 import torch.utils.model_zoo as model_zoo
-from utils import utils
-from torch.utils.checkpoint import checkpoint
+
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
@@ -122,8 +121,8 @@ class ACNet(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-        if pretrained:
-            self._load_resnet_pretrained()
+      
+        self._load_resnet_pretrained()
 
 
     
@@ -211,7 +210,7 @@ class ACNet(nn.Module):
     
 
     def _load_resnet_pretrained(self):
-        pretrain_dict = model_zoo.load_url(utils.model_urls['resnet18'])
+        pretrain_dict = model_zoo.load_url(model_urls['resnet18'])
         model_dict = {}
         state_dict = self.state_dict()
         for k, v in pretrain_dict.items():
@@ -236,12 +235,12 @@ class ACNet(nn.Module):
 
 
 
-def resnet18_acnet(pretrained=False, progress=True, **kwargs):
+def resnet18_acnet(**kwargs):
     """Constructs a ResNet-18 model.
 
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return ACNet(BasicBlock, [2, 2, 2, 2], pretrained, progress,
+    return ACNet(BasicBlock, [2, 2, 2, 2],
                    **kwargs)

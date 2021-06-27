@@ -1,12 +1,14 @@
 import torch.nn as nn
 # from .utils import load_state_dict_from_url
 # from torch.hub import load_state_dict_from_url
-#from torch.hub import load_state_dict_from_url
+from torch.hub import load_state_dict_from_url
 import torch
 import torch.nn.functional as F
-
+import torch.utils.model_zoo as model_zoo
 import torchvision.models.resnet
-
+import pdb
+from models import MPNCOV
+from models.High_Order import *
 __all__ = ['ResNet', 'resnet18', 'resnet34', 'resnet50', 'resnet101',
            'resnet152', 'resnext50_32x4d', 'resnext101_32x8d']
 
@@ -124,7 +126,7 @@ class ResNet(nn.Module):
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
-
+        #self.avg_pool = nn.AdaptiveAvgPool2d(1)
         self.inplanes = 64
         self.dilation = 1
         if replace_stride_with_dilation is None:
@@ -156,23 +158,14 @@ class ResNet(nn.Module):
 
         # self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         # self.fc = nn.Linear(512 * block.expansion, num_classes)
-
+        
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
             elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
-
-        # Zero-initialize the last BN in each residual branch,
-        # so that the residual branch starts with zeros, and each residual block behaves like an identity.
-        # This improves the model by 0.2~0.3% according to https://arxiv.org/abs/1706.02677
-        if zero_init_residual:
-            for m in self.modules():
-                if isinstance(m, Bottleneck):
-                    nn.init.constant_(m.bn3.weight, 0)
-                elif isinstance(m, BasicBlock):
-                    nn.init.constant_(m.bn2.weight, 0)
+        
 
     def _make_layer(self, block, planes, blocks, stride=1, dilate=False):
         norm_layer = self._norm_layer
@@ -201,15 +194,25 @@ class ResNet(nn.Module):
     def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
-        x = self.relu(x)
-        x = self.maxpool(x)
-
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-
-        return x
+        output_0 = self.relu(x)
+        #pdb.set_trace()
+        #cov_mat = MPNCOV.CovpoolLayer(output_0) # Global Covariance pooling layer
+        #cov_mat_sqrt = MPNCOV.SqrtmLayer(cov_mat,5) # Matrix square root layer( including pre-norm,Newton-Schulz iter. and post-com. with 5 iteration)
+        #cov_mat_sum = torch.mean(cov_mat_sqrt,1)
+        
+        x = self.maxpool(output_0)
+        #pdb.set_trace()
+        output_1 = self.layer1(x)
+        #channel attention
+        #cov_mat = MPNCOV.CovpoolLayer(output_1) # Global Covariance pooling layer
+        #cov_mat_sqrt = MPNCOV.SqrtmLayer(cov_mat,5)
+        #pdb.set_trace()
+        output_2 = self.layer2(output_1)
+       
+        output_3 = self.layer3(output_2)
+        output_4 = self.layer4(output_3)
+        #output_0 = F.interpolate(output_0, size=[8, 6], mode="bilinear")
+        return output_4
 
 
 def remove_fc(state_dict):
@@ -218,13 +221,27 @@ def remove_fc(state_dict):
 
 
 def _resnet(arch, block, layers, pretrained, progress, **kwargs):
+    '''
     model = ResNet(block, layers, **kwargs)
+    
     if pretrained:
         state_dict = load_state_dict_from_url(model_urls[arch],
                                               progress=progress)
         model.load_state_dict(remove_fc(state_dict))
     return model
-
+    '''
+    model = ResNet(block, layers, **kwargs)
+    
+    #pretrain from the model   version1:
+    pretrained_dict = model_zoo.load_url(model_urls['resnet18'])
+    model_dict = model.state_dict()
+    pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict and model_dict[k].size() == v.size()}
+    #pretrained_dict = {k:v for k,v in pretrained_dict.items() if k in model_dict}
+    model_dict.update(pretrained_dict)
+    model.load_state_dict(model_dict)
+    # model.load_state_dict(model_zoo.load_url(model_urls['resnet50']))
+    
+    return model
 
 def resnet18(pretrained=False, progress=True, **kwargs):
     """Constructs a ResNet-18 model.

@@ -65,6 +65,6 @@ def generate_data_description(save_dir, reorder):
 
 
 if __name__ == "__main__":
-    save_dir = './data/RAP2/'
+    save_dir = '/media/data1/pengqy/Strong_Baseline_of_Pedestrian_Attribute_Recognition/data/RAP2'
     reorder = True
     generate_data_description(save_dir, reorder)

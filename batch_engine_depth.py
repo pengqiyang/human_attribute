@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch.nn.utils import clip_grad_norm_
 from tqdm import tqdm
-
+from visualization.vis_feature_map import vif, show_on_image
 from tools.utils import AverageMeter, to_scalar, time_str
 
 def l2_norm(input, axit=1):
@@ -24,10 +24,13 @@ def batch_trainer(epoch, model, train_loader, criterion, optimizer, loss):
     lr = optimizer.param_groups[1]['lr']
 
     for step, (imgs, depth, gt_label, imgname) in enumerate(train_loader):
+        #pdb.set_trace()
         #print(step)
         batch_time = time.time()
         imgs, gt_label = imgs.cuda(), gt_label.cuda()
+        #train_logits, depth_logits = model(imgs, depth, gt_label)
         train_logits = model(imgs, depth, gt_label)
+        #train_logits = model(imgs,  gt_label)          
         if loss == 'KL_LOSS':
             sim = np.load('src/sim.npy')
             cls_weight = model.state_dict()['module.classifier.logits.0.weight']
@@ -57,7 +60,8 @@ def batch_trainer(epoch, model, train_loader, criterion, optimizer, loss):
 
             train_loss = criterion(train_logits, gt_label) + kl_mean
         if loss == 'BCE_LOSS':
-            train_loss = criterion(train_logits, gt_label) 
+            train_loss = criterion(train_logits, gt_label)
+            
         train_loss.backward()
         clip_grad_norm_(model.parameters(), max_norm=10.0)  # make larger learning rate works
         optimizer.step()
@@ -97,11 +101,17 @@ def valid_trainer(model, valid_loader, criterion):
             gt_list.append(gt_label.cpu().numpy())
             gt_label[gt_label == -1] = 0
             valid_logits = model(imgs, depth)
+            #valid_logits = model(imgs, gt_label)
+            #valid_logits, output_depth_0,output_depth_1,output_depth_2 = model(imgs, depth)
+            #valid_logits, depth_logits = model(imgs, depth)
+            
             valid_loss = criterion(valid_logits, gt_label)
             valid_probs = torch.sigmoid(valid_logits)
             preds_probs.append(valid_probs.cpu().numpy())
             loss_meter.update(to_scalar(valid_loss))
-
+            #show_on_image(imgname, output_0)      
+            #vif(imgname,output_depth_0,output_depth_1,output_depth_2,output_depth_3, output_depth_4, output_depth_5)
+            #return 0
     valid_loss = loss_meter.avg
 
     gt_label = np.concatenate(gt_list, axis=0)

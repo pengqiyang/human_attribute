@@ -3,12 +3,13 @@ import pprint
 from collections import OrderedDict, defaultdict
 import numpy as np
 import torch
+import pdb
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from batch_engine import valid_trainer, batch_trainer
 from config import argument_parser
 from dataset.AttrDataset import AttrDataset, get_transform
-
+from models.resnet_depth import resnet_depth
 from loss.CE_loss import CEL_Sigmoid
 from models.base_block import FeatClassifier, BaseClassifier
 from models.resnet import resnet50, resnet18, resnet34
@@ -25,9 +26,13 @@ from models.resnet18_vit_v5 import resnet18_vit_v5
 from models.resnet18_group_se import resnet18_group_se
 from models.resnet18_vit_split import resnet18_vit_split
 from models.resnet18_energy_vit import resnet18_energy_vit
+from models.inception_self import inception_self
+from models.resnet_stn import resnet18_stn
+from models.resnet18_transformer import resnet18_transformer
 from tools.function import get_model_log_path, get_pedestrian_metrics
 from tools.utils import time_str, save_ckpt, ReDirectSTD, set_seed
-
+from models.spatial_modulator import spatial_modulator
+from models.fusion_concat import fusion_concat
 set_seed(605)
 
 def main(args):
@@ -52,23 +57,25 @@ def main(args):
     print(train_tsfm)
 
     #train_set = AttrDataset(args=args, split=args.train_split, transform=train_tsfm)
-    train_set = AttrDataset(args=args, split=args.train_split, transform=train_tsfm, )
+    train_set = AttrDataset(args=args, split=args.train_split, transform=train_tsfm, target_transform=None, Type='train' )
     
     train_loader = DataLoader(
         dataset=train_set,
         batch_size=args.batchsize,
         shuffle=True,
-        num_workers=4,
+        num_workers=0,
+        drop_last=True,
         pin_memory=True,
     )
     #valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm)
-    valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm)
+    valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm, target_transform=None, Type='val')
     
     valid_loader = DataLoader(
         dataset=valid_set,
         batch_size=args.batchsize,
         shuffle=False,
-        num_workers=4,
+        num_workers=0,
+        drop_last=True,
         pin_memory=True,
     )
 
@@ -84,7 +91,12 @@ def main(args):
         backbone = resnet50()
     if args.model_name == 'resnet18':
         backbone = resnet18()
-
+    if args.model_name == 'resnet18_stn':
+        backbone = resnet18_stn()       
+    if args.model_name == 'resnet_depth':
+        backbone = resnet_depth()
+    if args.model_name == 'resnet18_transformer':
+        backbone = resnet18_transformer()        
     if args.model_name == 'resnet50_dynamic_se':
         backbone = resnet50_dynamic_se()
     if args.model_name == 'resnet18_dynamic_se':
@@ -109,6 +121,12 @@ def main(args):
         backbone = resnet18_energy_vit()
     if args.model_name == 'resnet18_vit_split':
         backbone = resnet18_vit_split(num_classes = train_set.attr_num)
+    if args.model_name == 'inception_self':
+        backbone = inception_self()  
+    if args.model_name == 'spatial_modulator':
+        backbone = spatial_modulator()
+    if args.model_name == 'fusion_concat':
+        backbone = fusion_concat()         
     print('have generated the model')    
     classifier = BaseClassifier(nattr=train_set.attr_num)
     model = FeatClassifier(backbone, classifier)
@@ -119,11 +137,46 @@ def main(args):
     
     #if torch.cuda.is_available():
     model = torch.nn.DataParallel(model).cuda()
-
+    #for k, v in model.state_dict().items():
+    #    print(k)
+    '''
+    model_dict = {}
+    state_dict = model.state_dict()
+    pretrain_dict = torch.load('/home/pengqy/paper/resnet18_2/PETA/PETA/img_model/ckpt_max.pth')['state_dicts']
+    for k, v in pretrain_dict.items():
+        # print('%%%%% ', k)
+        if k in state_dict:
+            if k.startswith('module.backbone.conv1'):
+                #pdb.set_trace()
+                model_dict[k] = v       
+            elif k.startswith('module.backbone.bn1'):
+                model_dict[k] = v          
+            elif k.startswith('module.backbone.layer'):
+                model_dict[k] = v
+            elif k.startswith('module.classifier'):
+                model_dict[k] = v
+            
+            #elif k.startswith('module.backbone.spa_conv_0'):
+            #    model_dict[k] = v
+            #elif k.startswith('module.backbone.spa_bn_0'):
+            #    model_dict[k] = v 
+            #elif k.startswith('module.classifier'):
+            #    model_dict[k] = v
+            #elif k.startswith('module.classifier'):
+            #    model_dict[k] = v   
+              
+    #pdb.set_trace()       
+         
+    state_dict.update(model_dict) 
+    model.load_state_dict(state_dict)
+    '''
     criterion = CEL_Sigmoid(sample_weight)
-
-    param_groups = [{'params': model.module.finetune_params(), 'lr': args.lr_ft},
-                   {'params': model.module.fresh_params(), 'lr': args.lr_new}]
+   
+  
+    
+    param_groups = [{'params': model.module.finetune_params(), 'lr':0.01},
+                   {'params': model.module.fresh_params(), 'lr':0.1}]
+    
     optimizer = torch.optim.SGD(param_groups, momentum=args.momentum, weight_decay=args.weight_decay, nesterov=False)
     lr_scheduler = ReduceLROnPlateau(optimizer, factor=0.1, patience=4)
     loss = args.loss
@@ -186,6 +239,7 @@ def trainer(epoch, model, train_loader, valid_loader, criterion, optimizer, lr_s
             maximum = cur_metric
             best_epoch = i
             save_ckpt(model, path, i, maximum)
+        save_ckpt(model, path, i, maximum)    
 
         result_list[i] = [train_result, valid_result]
 

@@ -30,30 +30,19 @@ def conv1x1(in_planes, out_planes, stride=1):
     """1x1 convolution"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
+
 class SELayer(nn.Module):
     def __init__(self, channel, reduction=16):
         super(SELayer, self).__init__()
-        self.avg_pool = nn.AdaptiveAvgPool2d(1)
-        self.fc_1 = nn.Linear(channel, channel // reduction, bias=False)
-        self.re_1 = nn.ReLU(inplace=True)
-        self.fc_2 = nn.Linear(channel // reduction, channel, bias=False)
-        self.re_2 = nn.ReLU(inplace=True)
+        self.re_2 = nn.ReLU(inplace=False)
         self.si = nn.Sigmoid()
 	            
-
     def forward(self, x):
-        #x = data[0]
-        #att = data[1][:,:,0,0]
-        #pdb.set_trace()
-        b, c, _, _ = x.size()
-        y = self.avg_pool(x).view(b, c)
-        global att
-        y = self.fc_1(att.view(b,c)+y)
-        y = self.re_1(y)
-        y = self.fc_2(y)
-        y = self.re_2(y)
+     
+        b, c, _, _ = x[0].size()
+        y = self.re_2(x[1])
         y = self.si(y).view(b, c, 1, 1)
-        return x * y.expand_as(x)
+        return x[0] * y.expand_as(x[0])
 
 class SEBottleneck(nn.Module):
     expansion = 4
@@ -96,6 +85,7 @@ class SEBottleneck(nn.Module):
         out = self.relu(out)
 
         return out
+        
 class SEBasicBlock(nn.Module):
     expansion = 1
 
@@ -113,27 +103,24 @@ class SEBasicBlock(nn.Module):
         self.stride = stride
 
     def forward(self, x):
-        #pdb.set_trace()
-        #x = data[0]
-        #att = data[1][:,:,0,0].view(x.size()[0],x.size()[1],1,1)
-        residual = x
-        out = self.conv1(x)
+      
+        residual = x[0]
+        out = self.conv1(x[0])
         out = self.bn1(out)
         out = self.relu(out)
 
         out = self.conv2(out)
         out = self.bn2(out)
-        #att = torch.stack((out, att.expand(out.size()[0], out.size()[1], out.size()[2], out.size()[3])), dim=0)
        
-        out = self.se(out)
+        out = self.se({0:out, 1:x[1]})
 
         if self.downsample is not None:
-            residual = self.downsample(x)
+            residual = self.downsample(x[0])
 
         out += residual
         out = self.relu(out)
 
-        return out
+        return {0:out, 1:x[1]}
 
 
 class ResNet(nn.Module):
@@ -268,7 +255,6 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        global att
         att1 = self.att_layer1(x)
         att1_b = self.avgpool(att1)
 
@@ -287,18 +273,18 @@ class ResNet(nn.Module):
         x = self.relu(x)
         x = self.maxpool(x)
 
-        att = att1_b
-        x = self.layer1(x)
+   
+        x = self.layer1({0:x, 1:att1_b})[0]
         #pdb.set_trace()
 		
-        att = att2_b
-        x = self.layer2(x)
+     
+        x = self.layer2({0:x, 1:att2_b})[0]
         #pdb.set_trace()
-        att = att3_b
-        x = self.layer3(x)
+       
+        x = self.layer3({0:x, 1:att3_b})[0]
 
-        att = att4_b
-        x = self.layer4(x)
+      
+        x = self.layer4({0:x, 1:att4_b})[0]
 
         return x
 
@@ -319,7 +305,7 @@ def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     if pretrained:
         #pdb.set_trace()
         #model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
-        pretrained_dict = model_zoo.load_url(model_urls['resnet50'])
+        pretrained_dict = model_zoo.load_url(model_urls['resnet18'])
         model_dict = model.state_dict()
         pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict and model_dict[k].size() == v.size()}
         #pretrained_dict = {k:v for k,v in pretrained_dict.items() if k in model_dict}

@@ -1,0 +1,5 @@
+python3 train.py PETA --batchsize=64 --loss='BCE_LOSS' --device='4,5,6,7' --save_path='paper/fusion_concat_0' --model_name='fusion_concat' --train_split='train' --valid_split='val'
+python3 train.py PETA --batchsize=64 --loss='BCE_LOSS' --device='4,5,6,7' --save_path='paper/fusion_concat_1' --model_name='fusion_concat' --train_split='train' --valid_split='val'
+python3 train.py PETA --batchsize=64 --loss='BCE_LOSS' --device='4,5,6,7' --save_path='paper/fusion_concat_2' --model_name='fusion_concat' --train_split='train' --valid_split='val'
+python3 train.py PETA --batchsize=64 --loss='BCE_LOSS' --device='4,5,6,7' --save_path='paper/fusion_concat_3' --model_name='fusion_concat' --train_split='train' --valid_split='val'
+python3 train.py PETA --batchsize=64 --loss='BCE_LOSS' --device='4,5,6,7' --save_path='paper/fusion_concat_4' --model_name='fusion_concat' --train_split='train' --valid_split='val'

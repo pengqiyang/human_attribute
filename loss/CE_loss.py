@@ -26,6 +26,6 @@ class CEL_Sigmoid(nn.Module):
             weight = ratio2weight(targets_mask, self.sample_weight)
             loss = (loss * weight.cuda())
 
-        loss = loss.sum() / batch_size if self.size_average else loss.sum()
+        loss_sum = loss.sum() / batch_size if self.size_average else loss.sum()
 
-        return loss
+        return loss_sum#, loss

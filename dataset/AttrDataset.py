@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import os
 import pickle
 
@@ -9,9 +10,101 @@ from tools.function import get_pkl_rootpath
 import torchvision.transforms as T
 
 
+from torchvision.transforms import *
+
+from PIL import Image
+import random
+import math
+import numpy as np
+import torch
+loc = np.load('PETA_layer3_loc.npy', allow_pickle=True).item()
+select_h = [1,2,0]
+class Random_Semantic_Erasing(object):
+    '''
+    Class that performs Random Erasing in Random Erasing Data Augmentation by Zhong et al. 
+    -------------------------------------------------------------------------------------
+    probability: The probability that the operation will be performed.
+    sl: min erasing area
+    sh: max erasing area
+    r1: min aspect ratio
+    mean: erasing value
+    -------------------------------------------------------------------------------------
+    '''
+    def __init__(self, name =' ', probability = 0.5, sl = 0.02, sh = 0.4, r1 = 0.3, mean=[0.4914, 0.4822, 0.4465]):
+        self.probability = probability
+        self.mean = mean
+        self.sl = sl
+        self.sh = sh
+        self.r1 = r1
+        self.name = name
+       
+    def __call__(self, img):
+        #pdb.set_trace()
+        if random.uniform(0, 1) > self.probability:
+            return img
+
+        for attempt in loc[self.name]:
+            x, y = attempt[0], attempt[1]
+            h = random.choice(select_h)
+        
+            if 0<=x-h and x+h <= img.size()[1]:
+                img[0, x-h:x+h, y-h:y+h] = self.mean[0]
+                img[1, x-h:x+h, y-h:y+h] = self.mean[1]
+                img[2, x-h:x+h, y-h:y+h] = self.mean[2]
+                
+               
+        return img
+
+class RandomErasing(object):
+    '''
+    Class that performs Random Erasing in Random Erasing Data Augmentation by Zhong et al. 
+    -------------------------------------------------------------------------------------
+    probability: The probability that the operation will be performed.
+    sl: min erasing area
+    sh: max erasing area
+    r1: min aspect ratio
+    mean: erasing value
+    -------------------------------------------------------------------------------------
+    '''
+    def __init__(self, probability = 0.5, sl = 0.02, sh = 0.4, r1 = 0.3, mean=[0.4914, 0.4822, 0.4465]):
+        self.probability = probability
+        self.mean = mean
+        self.sl = sl
+        self.sh = sh
+        self.r1 = r1
+       
+    def __call__(self, img):
+
+        if random.uniform(0, 1) > self.probability:
+            return img
+
+        for attempt in range(100):
+            area = img.size()[1] * img.size()[2]
+       
+            target_area = random.uniform(self.sl, self.sh) * area
+            aspect_ratio = random.uniform(self.r1, 1/self.r1)
+
+            h = int(round(math.sqrt(target_area * aspect_ratio)))
+            w = int(round(math.sqrt(target_area / aspect_ratio)))
+
+            if w < img.size()[2] and h < img.size()[1]:
+                x1 = random.randint(0, img.size()[1] - h)
+                y1 = random.randint(0, img.size()[2] - w)
+                if img.size()[0] == 3:
+                    img[0, x1:x1+h, y1:y1+w] = self.mean[0]
+                    img[1, x1:x1+h, y1:y1+w] = self.mean[1]
+                    img[2, x1:x1+h, y1:y1+w] = self.mean[2]
+                else:
+                    img[0, x1:x1+h, y1:y1+w] = self.mean[0]
+                return img
+
+        return img
+
+
+
 class AttrDataset(data.Dataset):
 
-    def __init__(self, split, args, transform=None, target_transform=None):
+    def __init__(self, split, args, transform=None, target_transform=None, Type='train'):
 
         assert args.dataset in ['PETA', 'PETA_dataset', 'PA100k', 'RAP', 'RAP2'], \
             f'dataset name {args.dataset} is not exist'
@@ -20,6 +113,7 @@ class AttrDataset(data.Dataset):
 
         dataset_info = pickle.load(open(data_path, 'rb+'))
     
+        self.Type = Type
         img_id = dataset_info.image_name
         attr_label = dataset_info.label
 
@@ -29,8 +123,8 @@ class AttrDataset(data.Dataset):
         self.transform = transform
         self.target_transform = target_transform
 
-        self.root_path = dataset_info.root
-
+        #self.root_path = dataset_info.root
+        self.root_path = 'data/RAP_HEAD'
         self.attr_id = dataset_info.attr_name
         self.attr_num = len(self.attr_id)
 
@@ -50,9 +144,25 @@ class AttrDataset(data.Dataset):
         imgpath = os.path.join(self.root_path, imgname)
         img = Image.open(imgpath)
 
+        '''
+        if self.Type == 'train':
+            
+            img = T.Resize((256, 192))(img)
+            img = T.ToTensor()(img)
+            img = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(img)
+            #pdb.set_trace()
+            img = Random_Semantic_Erasing(imgname)(img)
+        
+        elif self.Type == 'val':
+         
+            img = T.Resize((256, 192))(img)
+            img = T.ToTensor()(img)
+            img = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])(img)           
+        '''
         if self.transform is not None:
             img = self.transform(img)
-
+        
+        
         gt_label = gt_label.astype(np.float32)
 
         if self.target_transform is not None:
@@ -67,12 +177,13 @@ class AttrDataset(data.Dataset):
 def get_transform(args):
     height = args.height
     width = args.width
+    #normalize = T.Normalize(mean=[0.6425], std=[0.2979])
     normalize = T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     train_transform = T.Compose([
         T.Resize((height, width)),
-        T.Pad(10),
-        T.RandomCrop((height, width)),
-        T.RandomHorizontalFlip(),
+        # T.Pad(10),
+        # T.RandomCrop((height, width)),
+        # T.RandomHorizontalFlip(),
         T.ToTensor(),
         normalize,
     ])

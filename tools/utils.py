@@ -7,7 +7,9 @@ import torch
 from torch.autograd import Variable
 import random
 import numpy as np
-
+total =[]
+for i in range(35):
+    total.append(torch.zeros(256).cuda())
 
 def time_str(fmt=None):
     if fmt is None:
@@ -435,3 +437,10 @@ class data_prefetcher():
         target = self.next_target
         self.preload()
         return input, target
+def tongji(feature_map, gt_label , total):
+    for i in range(gt_label.size()[0]):
+        channel = feature_map[i]#C
+        sort, indices = torch.sort(channel, descending=True)
+        for j in range(35):
+            if gt_label[i][j]==1:
+                total[j][indices[:80]] =  total[j][indices[:80]] + 1

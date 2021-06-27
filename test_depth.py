@@ -12,18 +12,32 @@ from config import argument_parser
 from loss.CE_loss import CEL_Sigmoid
 
 from models.resnet import resnet50, resnet18, resnet34
+from models.resnet18_depth import resnet18_depth
 from tools.function import  get_model_log_path, get_pedestrian_metrics
 from tools.utils import load_ckpt, time_str, save_ckpt, ReDirectSTD, set_seed
-
-'''
+from models.ACNet_models_V1 import resnet18_acnet
+from models.resnet18_attention_depth import resnet18_attention_depth
+from models.resnet18_no_attention_depth import resnet18_no_attention_depth
+from models.resnet_attention_depth_spatial import resnet_attention_depth_spatial
+from models.resnet_depth_selective_fusion import resnet_depth_selective_fusion
+from models.resnet_attention_depth_cbam_spatial import resnet_attention_depth_cbam_spatial
 from dataset.AttrDataset_depth_split import AttrDataset, get_transform
 from batch_engine_depth import valid_trainer, batch_trainer
 from models.base_block_depth import FeatClassifier, BaseClassifier
+from models.resnet18_inception_depth_4 import resnet18_inception_depth_4
+from models.resnet18_self_attention_depth_34 import resnet18_self_attention_depth_34
+from models.resnet18_self_attention_depth_34_version2 import resnet18_self_attention_depth_34_version2
+from models.resnet18_inception_depth_4_wrap import resnet18_inception_depth_4_wrap
+from models.ours import ours
+from models.resnet_depth import resnet_depth
+from models.resnet_attention import resnet_attention 
+from models.resnet18_self_mutual_attention import resnet18_self_mutual_attention
 '''
 from batch_engine import valid_trainer, batch_trainer
 from models.base_block import FeatClassifier, BaseClassifier
 from models.resnet18_depth import resnet18_depth
 from dataset.AttrDataset_depth import AttrDataset, get_transform
+'''
 set_seed(605)
 
 
@@ -31,9 +45,9 @@ def main(args):
     os.environ['CUDA_VISIBLE_DEVICES'] = args.device
     print('load the model from:   ' + args.save_path )
     exp_dir = os.path.join(args.save_path, args.dataset, args.dataset, 'img_model/ckpt_max.pth')
-    train_tsfm, valid_tsfm, train_depth_tsfm, valid_depth_tsfm = get_transform(args)
+    train_tsfm, valid_tsfm = get_transform(args)
     #pdb.set_trace()
-    valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm, depth_transform=valid_depth_tsfm)
+    valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm)
 
     valid_loader = DataLoader(
         dataset=valid_set,
@@ -50,9 +64,38 @@ def main(args):
         backbone = resnet18()
     if args.model_name == 'resnet18_depth':
         backbone = resnet18_depth()
+    if args.model_name == 'acnet':
+        backbone = resnet18_acnet( num_classes = valid_set.attr_num)    
+    if args.model_name == 'resnet18_attention_depth':
+        backbone = resnet18_attention_depth( num_classes = valid_set.attr_num)    
+    if args.model_name == 'resnet18_no_attention_depth':
+        backbone = resnet18_no_attention_depth( num_classes = valid_set.attr_num)
+    if args.model_name == 'resnet_depth_selective_fusion':
+        backbone = resnet_depth_selective_fusion( num_classes = valid_set.attr_num)          
+    if args.model_name == 'resnet_attention_depth_spatial':
+        backbone = resnet_attention_depth_spatial( num_classes = valid_set.attr_num)  
+    if args.model_name == 'resnet_attention_depth_cbam_spatial':
+        backbone = resnet_attention_depth_cbam_spatial( num_classes = valid_set.attr_num) 
+    if args.model_name == 'resnet18_inception_depth_4':
+        backbone = resnet18_inception_depth_4( num_classes = valid_set.attr_num)
+    if args.model_name == 'resnet18_self_attention_depth_34':    
+        backbone = resnet18_self_attention_depth_34( num_classes = valid_set.attr_num)
+    if args.model_name == 'resnet_attention':    
+        backbone = resnet_attention(num_classes = valid_set.attr_num)       
+    if args.model_name == 'ours':
+        backbone = ours( num_classes = valid_set.attr_num)    
+    if args.model_name == 'resnet18_self_attention_depth_34_version2':
+        backbone = resnet18_self_attention_depth_34_version2( num_classes = valid_set.attr_num)         
+    if args.model_name == 'resnet18_inception_depth_4_wrap':
+        backbone = resnet18_inception_depth_4_wrap( num_classes = valid_set.attr_num)
+    if args.model_name == 'resnet18_self_mutual_attention':
+        backbone = resnet18_self_mutual_attention( num_classes = valid_set.attr_num)        
+    if args.model_name == 'resnet_depth':
+        backbone = resnet_depth( num_classes = valid_set.attr_num)        
     classifier = BaseClassifier(nattr=valid_set.attr_num)
+    classifier_depth = BaseClassifier(nattr=valid_set.attr_num)
     model = FeatClassifier(backbone, classifier)
-
+    #model = FeatClassifier(backbone, classifier, classifier_depth)
     if torch.cuda.is_available():
         model = torch.nn.DataParallel(model).cuda()
         #model = model.cuda()

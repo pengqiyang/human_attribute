@@ -240,7 +240,7 @@ def _resnet(arch, block, layers, pretrained, progress, **kwargs):
     if pretrained:
         #pdb.set_trace()
         #model.load_state_dict(model_zoo.load_url(model_urls['resnet18']))
-        pretrained_dict = model_zoo.load_url(model_urls['resnet50'])
+        pretrained_dict = model_zoo.load_url(model_urls['resnet18'])
         model_dict = model.state_dict()
         pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict and model_dict[k].size() == v.size()}
         #pretrained_dict = {k:v for k,v in pretrained_dict.items() if k in model_dict}

@@ -18,11 +18,17 @@ from models.resnet18_vit import resnet18_vit
 from models.resnet18_vit_v2 import resnet18_vit_v2
 from models.resnet18_vit_v3 import resnet18_vit_v3
 from models.resnet18_vit_v5 import resnet18_vit_v5
+from models.resnet_stn import resnet18_stn
 from models.resnet18_vit_split import resnet18_vit_split
 from models.resnet18_energy_vit import resnet18_energy_vit
+from models.resnet18_autoencoder import resnet18_autoencoder
+from models.resnet18_transformer import resnet18_transformer
 from tools.function import  get_model_log_path, get_pedestrian_metrics
 from tools.utils import load_ckpt, time_str, save_ckpt, ReDirectSTD, set_seed
-
+from models.resnet_depth import resnet_depth
+from models.resnet18_consistent import resnet18_consistent
+from models.spatial_modulator import spatial_modulator
+from models.fusion_concat import fusion_concat
 set_seed(605)
 
 
@@ -32,13 +38,15 @@ def main(args):
     exp_dir = os.path.join(args.save_path, args.dataset, args.dataset, 'img_model/ckpt_max.pth')
     train_tsfm, valid_tsfm = get_transform(args)
    
-    valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm)
 
+    #valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm)
+    valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm, target_transform=None, Type='val')
+    
     valid_loader = DataLoader(
         dataset=valid_set,
         batch_size=args.batchsize,
         shuffle=False,
-        num_workers=4,
+        num_workers=0,
         pin_memory=True,
     )
     print('have generated dataset')
@@ -47,6 +55,12 @@ def main(args):
         backbone = resnet50()
     if args.model_name == 'resnet18':
         backbone = resnet18()
+    if args.model_name == 'resnet18_consistent':
+        backbone = resnet18_consistent()    
+    if args.model_name == 'resnet18_stn':
+        backbone = resnet18_stn()        
+    if args.model_name == 'resnet18_autoencoder':
+        backbone = resnet18_autoencoder()
     if args.model_name == 'resnet50_dynamic_se':
         backbone = resnet50_dynamic_se()
     if args.model_name == 'resnet18_dynamic_se':
@@ -67,6 +81,12 @@ def main(args):
         backbone = resnet18_vit_split(num_classes = valid_set.attr_num)
     if args.model_name == 'resnet18_energy_vit':
         backbone = resnet18_energy_vit(num_classes = valid_set.attr_num)
+    if args.model_name == 'resnet_depth':
+        backbone = resnet_depth( num_classes = valid_set.attr_num)   
+    if args.model_name == 'spatial_modulator':
+        backbone = spatial_modulator()
+    if args.model_name == 'fusion_concat':
+        backbone = fusion_concat()        
     classifier = BaseClassifier(nattr=valid_set.attr_num)
     model = FeatClassifier(backbone, classifier)
 
@@ -100,6 +120,7 @@ def main(args):
                   valid_result.instance_acc, valid_result.instance_prec, valid_result.instance_recall,
                   valid_result.instance_f1))
 
+    #for index in range(5, 35):
     for index in range(len(valid_set.attr_name)):
         print(f'{valid_set.attr_name[index]}')
         print(f'pos recall: {valid_result.label_pos_recall[index]}  neg_recall: {valid_result.label_neg_recall[index]}  ma: {valid_result.label_ma[index]}')

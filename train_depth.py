@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from batch_engine import valid_trainer, batch_trainer
 from config import argument_parser
 #from dataset.AttrDataset import AttrDataset, get_transform
-from dataset.AttrDataset_depth import AttrDataset, get_transform
+from dataset.AttrDataset_depth_combine import AttrDataset, get_transform
 from loss.CE_loss import CEL_Sigmoid
 from models.base_block import FeatClassifier, BaseClassifier
 from models.resnet import resnet50, resnet18, resnet34
@@ -27,7 +27,7 @@ from models.resnet18_vit_split import resnet18_vit_split
 from models.resnet18_energy_vit import resnet18_energy_vit
 from tools.function import get_model_log_path, get_pedestrian_metrics
 from tools.utils import time_str, save_ckpt, ReDirectSTD, set_seed
-from models.ACNet_models_V1 import ACNet
+from models.ACNet_models_V1 import resnet18_acnet
 set_seed(605)
 
 def main(args):
@@ -48,11 +48,11 @@ def main(args):
     print(f'train set: {args.dataset} {args.train_split}, test set: {args.valid_split}')
 
     #train_tsfm, valid_tsfm = get_transform(args)
-    train_tsfm, valid_tsfm, train_depth_tsfm, valid_depth_tsfm = get_transform(args)
+    train_tsfm, valid_tsfm = get_transform(args)
     print(train_tsfm)
 
     #train_set = AttrDataset(args=args, split=args.train_split, transform=train_tsfm)
-    train_set = AttrDataset(args=args, split=args.train_split, transform=train_tsfm, depth_transform=train_depth_tsfm )
+    train_set = AttrDataset(args=args, split=args.train_split, transform=train_tsfm)
     
     train_loader = DataLoader(
         dataset=train_set,
@@ -62,7 +62,7 @@ def main(args):
         pin_memory=True,
     )
     #valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm)
-    valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm, depth_transform=valid_depth_tsfm )
+    valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm)
     
     valid_loader = DataLoader(
         dataset=valid_set,
@@ -94,24 +94,12 @@ def main(args):
         backbone = resnet18_se()
     if args.model_name == 'resnet34':
         backbone = resnet34()
-    if args.model_name == 'resnet18_group_se':
-        backbone = resnet18_group_se()
-    if args.model_name == 'resnet18_vit':
-        backbone = resnet18_vit()
-    if args.model_name == 'resnet18_vit_v2':
-        backbone = resnet18_vit_v2()
-    if args.model_name == 'resnet18_vit_v3':
-        backbone = resnet18_vit_v3()
-    if args.model_name == 'resnet18_vit_v5':
-        backbone = resnet18_vit_v5()
-    if args.model_name == 'resnet18_energy_vit':
-        backbone = resnet18_energy_vit()
-    if args.model_name == 'resnet18_vit_split':
-        backbone = resnet18_vit_split(num_classes = train_set.attr_num)
+
     if args.model_name == 'acnet':
-        backbone = resnet18_acnet(num_classes = train_set.attr_num)
+        backbone = resnet18_acnet( num_classes = train_set.attr_num)
     print('have generated the model')    
     classifier = BaseClassifier(nattr=train_set.attr_num)
+    classifier_depth = BaseClassifier(nattr=train_set.attr_num)
     model = FeatClassifier(backbone, classifier)
     
     print('Number of model parameters: {}'.format(
