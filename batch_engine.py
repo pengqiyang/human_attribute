@@ -14,12 +14,13 @@ mask = torch.zeros(128,96)
 for i in range(48, 96):
     for j in range(24, 64):
         mask[i][j] = 1
-'''
+
+
 mask = torch.ones(51)
 for i in range(6):
     mask[i] = 0
 mask = mask.cuda().float().unsqueeze(0)
-
+'''
 def l2_norm(input, axit=1):
     norm = torch.norm(input,2,axit,True)
     output = torch.div(input, norm)
@@ -98,8 +99,8 @@ def batch_trainer(epoch, model, train_loader, criterion, optimizer, loss):
             #pdb.set_trace()
             #mm = torch.stack( [torch.sum(cha_att, dim=0), torch.sum(spa_att, dim=0)], dim=0)
             #mma = get_mma_loss(mm)            
-            #train_loss = criterion(train_logits , gt_label ) #+0.5*mma#+ 0.5*criterion(cha_att, gt_label) #+ 0.02*torch.abs((32-torch.sum(torch.abs(cha_att))))         
-            train_loss = criterion(train_logits * (mask.expand_as(train_logits)), gt_label * (mask.expand_as(gt_label))) #+0.5*mma#+ 0.5*criterion(cha_att, gt_label) #+ 0.02*torch.abs((32-torch.sum(torch.abs(cha_att))))
+            train_loss = criterion(train_logits , gt_label ) #+0.5*mma#+ 0.5*criterion(cha_att, gt_label) #+ 0.02*torch.abs((32-torch.sum(torch.abs(cha_att))))         
+            #train_loss = criterion(train_logits * (mask.expand_as(train_logits)), gt_label * (mask.expand_as(gt_label))) #+0.5*mma#+ 0.5*criterion(cha_att, gt_label) #+ 0.02*torch.abs((32-torch.sum(torch.abs(cha_att))))
         train_loss.backward()
         clip_grad_norm_(model.parameters(), max_norm=10.0)  # make larger learning rate works
         optimizer.step()
@@ -147,9 +148,9 @@ def valid_trainer(model, valid_loader, criterion):
             gt_label[gt_label == -1] = 0
             valid_logits = model(imgs)
             
-            mask_cam = grad_cam(imgs, 22)#mask: bs, 256, 192
-            #valid_loss = criterion(valid_logits , gt_label)#+ 0.2*(torch.sum(torch.abs(cha_att))+torch.sum(torch.abs(spa_att)))           
-            valid_loss = criterion(valid_logits * (mask.expand_as(valid_logits)), gt_label * (mask.expand_as(gt_label)))#+ 0.2*(torch.sum(torch.abs(cha_att))+torch.sum(torch.abs(spa_att)))
+            #mask_cam = grad_cam(imgs, 22)#mask: bs, 256, 192
+            valid_loss = criterion(valid_logits , gt_label)#+ 0.2*(torch.sum(torch.abs(cha_att))+torch.sum(torch.abs(spa_att)))           
+            #valid_loss = criterion(valid_logits * (mask.expand_as(valid_logits)), gt_label * (mask.expand_as(gt_label)))#+ 0.2*(torch.sum(torch.abs(cha_att))+torch.sum(torch.abs(spa_att)))
             valid_probs = torch.sigmoid(valid_logits)           
             #valid_probs = torch.sigmoid(valid_logits[:, 6:])
             preds_probs.append(valid_probs.detach().cpu().numpy())
@@ -157,7 +158,7 @@ def valid_trainer(model, valid_loader, criterion):
             #show_att(imgname, spa_att,spa_att )
             #affine(imgname, theta)
             #vif(imgname, spa_att, spa_att)
-            show_on_image(imgname, mask_cam, 22, gt_label)
+            #show_on_image(imgname, mask_cam, 22, gt_label)
             #return 0
     valid_loss = loss_meter.avg
 

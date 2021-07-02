@@ -5,12 +5,12 @@ import numpy as np
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
-from bacth_engine_consist import valid_trainer, batch_trainer
+from batch_engine_conv import valid_trainer, batch_trainer
 from config import argument_parser
-from dataset.AttrDatasetConsist import AttrDataset, get_transform
+from dataset.AttrDataset import AttrDataset, get_transform
 from loss.CE_loss import CEL_Sigmoid
-from models.base_block_consist import FeatClassifier, BaseClassifier
-from models.resnet18_consistent import resnet18_consistent
+from models.base_block_conv import FeatClassifier, BaseClassifier
+from models.resnet18_conv import resnet18_conv
 from tools.function import  get_model_log_path, get_pedestrian_metrics
 from tools.utils import load_ckpt, time_str, save_ckpt, ReDirectSTD, set_seed
 
@@ -20,53 +20,32 @@ set_seed(605)
 def main(args):
     os.environ['CUDA_VISIBLE_DEVICES'] = args.device
     print('load the model from:   ' + args.save_path )
-    #exp_dir = os.path.join(args.save_path, args.dataset, args.dataset, 'img_model/ckpt_max.pth')
-    exp_dir = 'ckpt_max_23.pth'
-    #exp_dir = '/home/pengqy/paper/resnet18_part_detector/PETA/PETA/img_model/ckpt_max.pth'
-    train_tsfm, train_tsfm_resize, valid_tsfm, valid_tsfm_resize = get_transform(args)
+    exp_dir = os.path.join(args.save_path, args.dataset, args.dataset, 'img_model/ckpt_max.pth')
+    train_tsfm, valid_tsfm = get_transform(args)
    
-    valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm, transform_resize=valid_tsfm_resize)
-       
-
+    valid_set = AttrDataset(args=args, split=args.valid_split, transform=valid_tsfm, target_transform=None, Type='val')
+    
     valid_loader = DataLoader(
         dataset=valid_set,
         batch_size=args.batchsize,
         shuffle=False,
-        num_workers=0,
+        num_workers=4,
+        drop_last=True,
         pin_memory=True,
     )
     print('have generated dataset')
 
 
-    if args.model_name == 'resnet18_consistent':
-        backbone = resnet18_consistent()   
+    if args.model_name == 'resnet18_conv':
+        backbone = resnet18_conv()   
   
     classifier = BaseClassifier(nattr=valid_set.attr_num)
     model = FeatClassifier(backbone, classifier)
 
     if torch.cuda.is_available():
         model = torch.nn.DataParallel(model).cuda()
-        #model = model.cuda()
-
-    #loading state_dict from the model
-    #model.load_state_dict(torch.load(exp_dir)['state_dicts'])
+    model.load_state_dict(torch.load(exp_dir)['state_dicts'])
     
-    model_dict = {}
-    state_dict = model.state_dict()   
-    pretrain_dict = torch.load(exp_dir)['state_dicts']
-    for k, v in pretrain_dict.items():      
-        if k.startswith('module.backbone.'):
-            model_dict[k] = v
-        
-        if k.startswith('module.classifier.conv'):
-            model_dict['module.backbone.conv'+k[22:]] = v
-          
-        elif k.startswith('module.classifier.bn'):
-            model_dict['module.backbone.bn'+k[20:]] = v     
-        
-    state_dict.update(model_dict) 
-    model.load_state_dict(state_dict)
-    #pdb.set_trace()
     labels = valid_set.label
     sample_weight = labels.mean(0)
     criterion = CEL_Sigmoid(sample_weight)
@@ -97,10 +76,3 @@ if __name__ == '__main__':
     main(args)
 
     # os.path.abspath()
-
-"""
-载入的时候要：
-from tools.function import LogVisual
-sys.modules['LogVisual'] = LogVisual
-log = torch.load('./save/2018-10-29_21:17:34trlog')
-"""

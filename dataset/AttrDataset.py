@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 import os
 import pickle
-
+import cv2
 import numpy as np
 import torch.utils.data as data
 from PIL import Image
@@ -17,8 +17,7 @@ import random
 import math
 import numpy as np
 import torch
-loc = np.load('PETA_layer3_loc.npy', allow_pickle=True).item()
-select_h = [1,2,0]
+
 class Random_Semantic_Erasing(object):
     '''
     Class that performs Random Erasing in Random Erasing Data Augmentation by Zhong et al. 
@@ -37,7 +36,8 @@ class Random_Semantic_Erasing(object):
         self.sh = sh
         self.r1 = r1
         self.name = name
-       
+    #给定激活点，以激活点为中心，生成矩形      
+    '''
     def __call__(self, img):
         #pdb.set_trace()
         if random.uniform(0, 1) > self.probability:
@@ -54,7 +54,35 @@ class Random_Semantic_Erasing(object):
                 
                
         return img
-
+    '''
+    
+    #根据CAM生成mask
+    def __call__(self, img):
+        #pdb.set_trace()
+        if random.uniform(0, 1) > self.probability:
+            return img
+        #pdb.set_trace()
+        if (os.path.isfile('RAP_mask/'+self.name.split('.')[0]+'.npy')==False):
+            return img
+        loc = np.load('RAP_mask/'+self.name.split('.')[0]+'.npy', allow_pickle=True).item()
+        if len(loc['cam'])==0:
+        
+            return img
+        mask = 0
+        total = 0
+        for attempt in loc['cam']:
+            if random.uniform(0, 1) > self.probability:
+                attempt = np.where(attempt>=0.95, 1,0)
+                mask = mask + attempt
+                total = total + 1
+       
+        if total == 0:
+            return img
+        mask = (1- mask/total)
+        #cv2.imwrite('0.jpg', np.uint8(255*mask))
+        #pdb.set_trace()
+        img = torch.from_numpy(mask).float() * img       
+        return img
 class RandomErasing(object):
     '''
     Class that performs Random Erasing in Random Erasing Data Augmentation by Zhong et al. 
@@ -72,7 +100,10 @@ class RandomErasing(object):
         self.sl = sl
         self.sh = sh
         self.r1 = r1
-       
+        
+        
+
+    
     def __call__(self, img):
 
         if random.uniform(0, 1) > self.probability:
@@ -123,8 +154,8 @@ class AttrDataset(data.Dataset):
         self.transform = transform
         self.target_transform = target_transform
 
-        #self.root_path = dataset_info.root
-        self.root_path = 'data/RAP_HEAD'
+        self.root_path = dataset_info.root
+        #self.root_path = 'data/RAP_HEAD'
         self.attr_id = dataset_info.attr_name
         self.attr_num = len(self.attr_id)
 
@@ -143,9 +174,10 @@ class AttrDataset(data.Dataset):
         imgname, gt_label, imgidx = self.img_id[index], self.label[index], self.img_idx[index]
         imgpath = os.path.join(self.root_path, imgname)
         img = Image.open(imgpath)
-
+        
         '''
-        if self.Type == 'train':
+        #pdb.set_trace()
+        if self.Type == 'train' or self.Type == 'trainval':
             
             img = T.Resize((256, 192))(img)
             img = T.ToTensor()(img)
@@ -153,7 +185,7 @@ class AttrDataset(data.Dataset):
             #pdb.set_trace()
             img = Random_Semantic_Erasing(imgname)(img)
         
-        elif self.Type == 'val':
+        elif self.Type == 'val' or self.Type == 'test':
          
             img = T.Resize((256, 192))(img)
             img = T.ToTensor()(img)

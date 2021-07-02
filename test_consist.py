@@ -21,7 +21,7 @@ def main(args):
     os.environ['CUDA_VISIBLE_DEVICES'] = args.device
     print('load the model from:   ' + args.save_path )
     #exp_dir = os.path.join(args.save_path, args.dataset, args.dataset, 'img_model/ckpt_max.pth')
-    exp_dir = 'ckpt_max_23.pth'
+    exp_dir = 'src/ckpt_max_23.pth'
     #exp_dir = '/home/pengqy/paper/resnet18_part_detector/PETA/PETA/img_model/ckpt_max.pth'
     train_tsfm, train_tsfm_resize, valid_tsfm, valid_tsfm_resize = get_transform(args)
    

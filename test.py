@@ -26,7 +26,7 @@ from models.resnet18_transformer import resnet18_transformer
 from tools.function import  get_model_log_path, get_pedestrian_metrics
 from tools.utils import load_ckpt, time_str, save_ckpt, ReDirectSTD, set_seed
 from models.resnet_depth import resnet_depth
-from models.resnet18_consistent import resnet18_consistent
+#from models.resnet18_consistent import resnet18_consistent
 from models.spatial_modulator import spatial_modulator
 from models.fusion_concat import fusion_concat
 set_seed(605)

@@ -52,7 +52,7 @@ class AttrDataset(data.Dataset):
 
         imgname, gt_label, imgidx = self.img_id[index], self.label[index], self.img_idx[index]
         imgpath = os.path.join(self.root_path, imgname)
-        imgseg_path = os.path.join('/media/data1/pengqy/Strong_Baseline_of_Pedestrian_Attribute_Recognition/data/PETA_seg/', imgname)
+        #imgseg_path = os.path.join('/media/data1/pengqy/Strong_Baseline_of_Pedestrian_Attribute_Recognition/data/PETA_seg/', imgname)
         img = Image.open(imgpath)
         #pdb.set_trace()
         #img_mask = np.load('/media/data1/pengqy/Strong_Baseline_of_Pedestrian_Attribute_Recognition/data/PETA_mask/'+imgname.split('.')[0]+'.npy',allow_pickle=True)
